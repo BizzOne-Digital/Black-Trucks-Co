@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { sendCancellationEmail } from '@/lib/email';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
@@ -8,10 +8,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   try {
     const session = await getServerSession(authOptions);
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    const booking = await db.collection('Booking').findOne({ _id: oid });
+    const booking = await db.collection('Booking').findOne({ _id: docId });
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const isAdmin = (session?.user as any)?.role === 'admin';
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       ? (hoursUntilRide >= 24 ? booking.totalPrice : booking.totalPrice * 0.5)
       : undefined;
 
-    await db.collection('Booking').updateOne({ _id: oid }, {
+    await db.collection('Booking').updateOne({ _id: docId }, {
       $set: {
         status: 'cancelled',
         paymentStatus: refundAmount ? 'refunded' : booking.paymentStatus,
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       },
     });
 
-    const user = booking.userId ? await db.collection('User').findOne({ _id: parseId(booking.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+    const user = booking.userId ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
     const email = booking.guestEmail || user?.email;
     const name = booking.guestName || user?.name || 'Customer';
 

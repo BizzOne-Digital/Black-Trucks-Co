@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, toIds, parseId } from '@/lib/mongodb';
+import { getDb, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createPendingBooking } from '@/lib/createPendingBooking';
@@ -52,10 +52,9 @@ export async function GET(req: NextRequest) {
       db.collection('Booking').countDocuments(filter),
     ]);
 
-    // Populate vehicle and driver
     const bookings = await Promise.all(rawBookings.map(async (b) => {
-      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(b.vehicleId.toString()) }) : null;
-      const driver = b.driverId ? await db.collection('User').findOne({ _id: parseId(b.driverId.toString()) }, { projection: { password: 0 } }) : null;
+      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(b.vehicleId?.toString()) }) : null;
+      const driver = b.driverId ? await db.collection('User').findOne({ _id: oid(b.driverId?.toString()) }, { projection: { password: 0 } }) : null;
       return {
         ...b,
         id: b._id.toString(),

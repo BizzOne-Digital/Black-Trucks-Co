@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { BLOCKING_STATUSES, timeToMinutes } from '@/lib/availability';
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         const startMin = timeToMinutes(b.time);
         const endMin = startMin + Math.ceil(b.duration);
         const endTime = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
-        const user = b.userId ? await db.collection('User').findOne({ _id: parseId(b.userId.toString()) }, { projection: { name: 1 } }) : null;
+        const user = b.userId ? await db.collection('User').findOne({ _id: oid(b.userId?.toString()) }, { projection: { name: 1 } }) : null;
         return {
           reference: b.reference, time: b.time, endTime,
           duration: Math.ceil(b.duration), status: b.status,

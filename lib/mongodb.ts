@@ -46,10 +46,21 @@ export function toIds(docs: any[]) {
 }
 
 // ─── Helper: parse ObjectId safely ───────────────────────────────────────────
-export function parseId(id: string) {
+export function parseId(id: string): ObjectId | null {
   try {
     return new ObjectId(id);
   } catch {
     return null;
+  }
+}
+
+/** Parse an id that is already known to be valid (e.g. from a DB document field).
+ *  Returns undefined (not null) so it is safe to use directly in Mongo filters. */
+export function oid(id: string | undefined | null): ObjectId | undefined {
+  if (!id) return undefined;
+  try {
+    return new ObjectId(id);
+  } catch {
+    return undefined;
   }
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -13,15 +13,15 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     if (adminGuard(session)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    const raw = await db.collection('User').findOne({ _id: oid }, { projection: { password: 0 } });
+    const raw = await db.collection('User').findOne({ _id: docId }, { projection: { password: 0 } });
     if (!raw) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const rawBookings = await db.collection('Booking').find({ userId: params.id }).sort({ createdAt: -1 }).limit(10).toArray();
     const bookings = await Promise.all(rawBookings.map(async (b) => {
-      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(b.vehicleId.toString()) }, { projection: { name: 1 } }) : null;
+      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(b.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
       return { ...b, id: b._id.toString(), _id: undefined, vehicle: vehicle ? { name: vehicle.name } : null };
     }));
 
@@ -46,11 +46,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.updatedAt = new Date();
 
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    await db.collection('User').updateOne({ _id: oid }, { $set: data });
-    const updated = await db.collection('User').findOne({ _id: oid }, { projection: { password: 0 } });
+    await db.collection('User').updateOne({ _id: docId }, { $set: data });
+    const updated = await db.collection('User').findOne({ _id: docId }, { projection: { password: 0 } });
     const user = { ...updated, id: updated!._id.toString(), _id: undefined };
     return NextResponse.json({ user });
   } catch (err: any) {
@@ -67,10 +67,10 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
     if (self === params.id) return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
 
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    await db.collection('User').deleteOne({ _id: oid });
+    await db.collection('User').deleteOne({ _id: docId });
     return NextResponse.json({ message: 'User deleted' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

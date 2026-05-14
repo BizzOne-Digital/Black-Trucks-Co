@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, oid } from '@/lib/mongodb';
 import { sendAbandonmentEmail, sendReviewRequestEmail } from '@/lib/email';
 
 function isAuthorized(req: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     for (const record of abandoned) {
       try {
-        const user = record.userId ? await db.collection('User').findOne({ _id: parseId(record.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+        const user = record.userId ? await db.collection('User').findOne({ _id: oid(record.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
         if (!user?.email) continue;
 
         await sendAbandonmentEmail({
@@ -56,8 +56,8 @@ export async function POST(req: NextRequest) {
     }).limit(50).toArray();
 
     for (const booking of completedBookings) {
-      const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(booking.vehicleId.toString()) }, { projection: { name: 1 } }) : null;
-      const user = booking.userId ? await db.collection('User').findOne({ _id: parseId(booking.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+      const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
+      const user = booking.userId ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
       const email = booking.guestEmail || user?.email;
       const name = booking.guestName || user?.name || 'Valued Customer';
       if (!email) continue;

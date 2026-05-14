@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { generateBookingRef } from '@/lib/generateRef';
 import { sendBookingConfirmation } from '@/lib/email';
 import { getServerSession } from 'next-auth';
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = (session.user as any).id;
-    const user = await db.collection('User').findOne({ _id: parseId(userId) });
+    const user = await db.collection('User').findOne({ _id: oid(userId) });
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const hours = Math.max(Math.ceil((duration / 60) * 2) / 2, vehicle.minimumHours || 1);

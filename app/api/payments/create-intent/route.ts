@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { createPaymentIntent } from '@/lib/stripe';
 
 export async function POST(req: NextRequest) {
@@ -8,14 +8,14 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ error: 'bookingId is required' }, { status: 400 });
 
     const db = await getDb();
-    const oid = parseId(bookingId);
-    if (!oid) return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 });
+    const docId = parseId(bookingId);
+    if (!docId) return NextResponse.json({ error: 'Invalid bookingId' }, { status: 400 });
 
-    const booking = await db.collection('Booking').findOne({ _id: oid });
+    const booking = await db.collection('Booking').findOne({ _id: docId });
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
     if (booking.paymentStatus === 'paid') return NextResponse.json({ error: 'Already paid' }, { status: 400 });
 
-    const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(booking.vehicleId.toString()) }, { projection: { name: 1 } }) : null;
+    const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
 
     const intent = await createPaymentIntent(booking.totalPrice, {
       bookingId: booking._id.toString(),
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       vehicleName: vehicle?.name || 'Vehicle',
     });
 
-    await db.collection('Booking').updateOne({ _id: oid }, {
+    await db.collection('Booking').updateOne({ _id: docId }, {
       $set: { stripePaymentIntentId: intent.id, updatedAt: new Date() },
     });
 

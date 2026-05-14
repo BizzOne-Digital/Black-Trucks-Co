@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -25,9 +25,9 @@ export async function GET(req: NextRequest) {
     ]);
 
     const bookings = await Promise.all(rawBookings.map(async (b) => {
-      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(b.vehicleId.toString()) }, { projection: { name: 1, category: 1, image: 1 } }) : null;
-      const user = b.userId ? await db.collection('User').findOne({ _id: parseId(b.userId.toString()) }, { projection: { name: 1, email: 1, phone: 1 } }) : null;
-      const driver = b.driverId ? await db.collection('User').findOne({ _id: parseId(b.driverId.toString()) }, { projection: { name: 1, phone: 1 } }) : null;
+      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(b.vehicleId?.toString()) }, { projection: { name: 1, category: 1, image: 1 } }) : null;
+      const user = b.userId ? await db.collection('User').findOne({ _id: oid(b.userId?.toString()) }, { projection: { name: 1, email: 1, phone: 1 } }) : null;
+      const driver = b.driverId ? await db.collection('User').findOne({ _id: oid(b.driverId?.toString()) }, { projection: { name: 1, phone: 1 } }) : null;
       return {
         ...b, id: b._id.toString(), _id: undefined,
         vehicle: vehicle ? { name: vehicle.name, category: vehicle.category, image: vehicle.image } : null,

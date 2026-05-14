@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -29,8 +29,8 @@ export async function GET() {
     const totalRevenue = paidBookings.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
 
     const recentBookings = await Promise.all(recentRaw.map(async (b) => {
-      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(b.vehicleId.toString()) }, { projection: { name: 1, category: 1 } }) : null;
-      const user = b.userId ? await db.collection('User').findOne({ _id: parseId(b.userId.toString()) }, { projection: { name: 1 } }) : null;
+      const vehicle = b.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(b.vehicleId?.toString()) }, { projection: { name: 1, category: 1 } }) : null;
+      const user = b.userId ? await db.collection('User').findOne({ _id: oid(b.userId?.toString()) }, { projection: { name: 1 } }) : null;
       return {
         ...b, id: b._id.toString(), _id: undefined,
         vehicle: vehicle ? { name: vehicle.name, category: vehicle.category } : null,

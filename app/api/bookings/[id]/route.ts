@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sendStatusUpdateEmail } from '@/lib/email';
@@ -7,14 +7,14 @@ import { sendStatusUpdateEmail } from '@/lib/email';
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   try {
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    const raw = await db.collection('Booking').findOne({ _id: oid });
+    const raw = await db.collection('Booking').findOne({ _id: docId });
     if (!raw) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
-    const vehicle = raw.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(raw.vehicleId.toString()) }) : null;
-    const driver = raw.driverId ? await db.collection('User').findOne({ _id: parseId(raw.driverId.toString()) }, { projection: { name: 1, phone: 1, email: 1 } }) : null;
+    const vehicle = raw.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(raw.vehicleId?.toString()) }) : null;
+    const driver = raw.driverId ? await db.collection('User').findOne({ _id: oid(raw.driverId?.toString()) }, { projection: { name: 1, phone: 1, email: 1 } }) : null;
 
     const booking = {
       ...raw, id: raw._id.toString(), _id: undefined,
@@ -41,18 +41,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
 
     const db = await getDb();
-    const oid = parseId(params.id);
-    if (!oid) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
+    const docId = parseId(params.id);
+    if (!docId) return NextResponse.json({ error: 'Invalid id' }, { status: 400 });
 
-    const before = await db.collection('Booking').findOne({ _id: oid });
+    const before = await db.collection('Booking').findOne({ _id: docId });
     if (!before) return NextResponse.json({ error: 'Booking not found' }, { status: 404 });
 
     const updateData = { ...body, updatedAt: new Date() };
-    await db.collection('Booking').updateOne({ _id: oid }, { $set: updateData });
+    await db.collection('Booking').updateOne({ _id: docId }, { $set: updateData });
 
-    const updated = await db.collection('Booking').findOne({ _id: oid });
-    const vehicle = updated?.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(updated.vehicleId.toString()) }) : null;
-    const driver = updated?.driverId ? await db.collection('User').findOne({ _id: parseId(updated.driverId.toString()) }, { projection: { name: 1, phone: 1 } }) : null;
+    const updated = await db.collection('Booking').findOne({ _id: docId });
+    const vehicle = updated?.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(updated.vehicleId?.toString()) }) : null;
+    const driver = updated?.driverId ? await db.collection('User').findOne({ _id: oid(updated.driverId?.toString()) }, { projection: { name: 1, phone: 1 } }) : null;
 
     const booking = {
       ...updated, id: updated!._id.toString(), _id: undefined,
@@ -60,9 +60,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       driver: driver ? { name: driver.name, phone: driver.phone } : null,
     };
 
-    // Send status update email if status changed
     if (body.status && before.status !== body.status) {
-      const user = before.userId ? await db.collection('User').findOne({ _id: parseId(before.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+      const user = before.userId ? await db.collection('User').findOne({ _id: oid(before.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
       const email = before.guestEmail || user?.email;
       const name = before.guestName || user?.name || 'Valued Customer';
       const beforeVehicle = vehicle ? vehicle.name : '';

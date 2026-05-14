@@ -80,6 +80,10 @@ export async function POST(req: NextRequest) {
       booking = bookingResult.booking;
     }
 
+    if (!booking) {
+      return NextResponse.json({ error: 'Could not create or find booking' }, { status: 500 });
+    }
+
     const bookingId = booking.id || booking._id?.toString();
     const customerEmail = authSession.user.email ?? undefined;
     const unitAmount = Math.round(booking.totalPrice * 100);

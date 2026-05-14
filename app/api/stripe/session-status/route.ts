@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import stripe from '@/lib/stripe';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,15 +23,15 @@ export async function GET(req: NextRequest) {
 
     if (bookingId) {
       const db = await getDb();
-      const oid = parseId(bookingId);
-      if (oid) {
-        const raw = await db.collection('Booking').findOne({ _id: oid });
+      const docId = parseId(bookingId);
+      if (docId) {
+        const raw = await db.collection('Booking').findOne({ _id: docId });
         if (raw) {
           const vehicle = raw.vehicleId ? await db.collection('Vehicle').findOne(
-            { _id: parseId(raw.vehicleId.toString()) },
+            { _id: oid(raw.vehicleId?.toString()) },
             { projection: { name: 1 } }
           ) : null;
-          booking = { ...raw, id: raw._id.toString(), vehicle };
+          booking = { ...raw, id: raw._id.toString(), _id: undefined, vehicle } as any;
         }
       }
     }

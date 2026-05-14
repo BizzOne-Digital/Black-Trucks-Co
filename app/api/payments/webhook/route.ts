@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import stripe from '@/lib/stripe';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { sendBookingConfirmation } from '@/lib/email';
 import Stripe from 'stripe';
 
@@ -22,13 +22,13 @@ export async function POST(req: NextRequest) {
     const bookingId = intent.metadata.bookingId;
     if (!bookingId) return NextResponse.json({ received: true });
 
-    const oid = parseId(bookingId);
-    if (!oid) return NextResponse.json({ received: true });
+    const docId = parseId(bookingId);
+    if (!docId) return NextResponse.json({ received: true });
 
-    const existing = await db.collection('Booking').findOne({ _id: oid });
+    const existing = await db.collection('Booking').findOne({ _id: docId });
     if (existing?.stripeCheckoutSessionId) return NextResponse.json({ received: true });
 
-    await db.collection('Booking').updateOne({ _id: oid }, {
+    await db.collection('Booking').updateOne({ _id: docId }, {
       $set: {
         paymentStatus: 'paid', status: 'confirmed',
         stripeChargeId: intent.latest_charge as string,
@@ -36,10 +36,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const booking = await db.collection('Booking').findOne({ _id: oid });
+    const booking = await db.collection('Booking').findOne({ _id: docId });
     if (booking) {
-      const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(booking.vehicleId.toString()) }, { projection: { name: 1 } }) : null;
-      const user = booking.userId ? await db.collection('User').findOne({ _id: parseId(booking.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+      const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
+      const user = booking.userId ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
       const email = booking.guestEmail || user?.email;
       const name = booking.guestName || user?.name || 'Customer';
       if (email) {
@@ -59,9 +59,9 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object as Stripe.PaymentIntent;
     const bookingId = intent.metadata.bookingId;
     if (bookingId) {
-      const oid = parseId(bookingId);
-      if (oid) {
-        await db.collection('Booking').updateOne({ _id: oid }, {
+      const docId = parseId(bookingId);
+      if (docId) {
+        await db.collection('Booking').updateOne({ _id: docId }, {
           $set: { paymentStatus: 'failed', updatedAt: new Date() },
         });
       }

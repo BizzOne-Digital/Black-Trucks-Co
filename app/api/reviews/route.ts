@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const rawReviews = await db.collection('Review').find(filter).sort({ createdAt: -1 }).limit(20).toArray();
 
     const reviews = await Promise.all(rawReviews.map(async (r) => {
-      const user = r.userId ? await db.collection('User').findOne({ _id: parseId(r.userId.toString()) }, { projection: { name: 1, image: 1 } }) : null;
+      const user = r.userId ? await db.collection('User').findOne({ _id: oid(r.userId?.toString()) }, { projection: { name: 1, image: 1 } }) : null;
       return {
         ...r, id: r._id.toString(), _id: undefined,
         user: user ? { name: user.name, image: user.image } : null,

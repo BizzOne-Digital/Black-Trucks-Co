@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import stripe from '@/lib/stripe';
-import { getDb, parseId } from '@/lib/mongodb';
+import { getDb, parseId, oid } from '@/lib/mongodb';
 import { sendBookingConfirmation } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
@@ -35,8 +35,8 @@ export async function POST(req: NextRequest) {
     if (!bookingId) return NextResponse.json({ received: true });
 
     const db = await getDb();
-    const oid = parseId(bookingId);
-    if (!oid) return NextResponse.json({ received: true });
+    const docId = parseId(bookingId);
+    if (!docId) return NextResponse.json({ received: true });
 
     let stripeChargeId: string | undefined;
     const piId = session.payment_intent;
@@ -49,10 +49,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const booking = await db.collection('Booking').findOne({ _id: oid });
+    const booking = await db.collection('Booking').findOne({ _id: docId });
     if (!booking || booking.paymentStatus === 'paid') return NextResponse.json({ received: true });
 
-    await db.collection('Booking').updateOne({ _id: oid }, {
+    await db.collection('Booking').updateOne({ _id: docId }, {
       $set: {
         paymentStatus: 'paid', status: 'confirmed',
         stripeCheckoutSessionId: session.id,
@@ -61,8 +61,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: parseId(booking.vehicleId.toString()) }, { projection: { name: 1 } }) : null;
-    const user = booking.userId ? await db.collection('User').findOne({ _id: parseId(booking.userId.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+    const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
+    const user = booking.userId ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
     const email = booking.guestEmail || user?.email;
     const name = booking.guestName || user?.name || 'Customer';
 
