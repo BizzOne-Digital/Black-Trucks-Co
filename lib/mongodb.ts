@@ -5,30 +5,27 @@
  */
 import { MongoClient, ObjectId, Db } from 'mongodb';
 
-const uri = process.env.MONGODB_URI!;
-if (!uri) throw new Error('MONGODB_URI is not defined in environment variables');
-
-const dbName = uri.split('/').pop()?.split('?')[0] || 'blacktrucks';
-
 // Singleton pattern for Next.js hot-reload
 const globalWithMongo = globalThis as typeof globalThis & { _mongoClient?: MongoClient };
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
-
-if (process.env.NODE_ENV === 'development') {
-  if (!globalWithMongo._mongoClient) {
-    globalWithMongo._mongoClient = new MongoClient(uri);
+function getClientPromise(): Promise<MongoClient> {
+  if (!process.env.MONGODB_URI) {
+    throw new Error('MONGODB_URI is not defined in environment variables');
   }
-  client = globalWithMongo._mongoClient;
-  clientPromise = client.connect();
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
+  const mongoUri = process.env.MONGODB_URI;
+  if (process.env.NODE_ENV === 'development') {
+    if (!globalWithMongo._mongoClient) {
+      globalWithMongo._mongoClient = new MongoClient(mongoUri);
+    }
+    return globalWithMongo._mongoClient.connect();
+  }
+  return new MongoClient(mongoUri).connect();
 }
 
 export async function getDb(): Promise<Db> {
-  await clientPromise;
+  const client = await getClientPromise();
+  const mongoUri = process.env.MONGODB_URI!;
+  const dbName = mongoUri.split('/').pop()?.split('?')[0] || 'blacktrucks';
   return client.db(dbName);
 }
 

@@ -37,22 +37,10 @@ export default function AddressInput({ placeholder, value, onChange, glass = fal
     if (query.length < 3) { setSuggestions([]); setOpen(false); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        api_key: process.env.NEXT_PUBLIC_ORS_API_KEY!,
-        text: query,
-        size: '8',
-        layers: 'venue,address,street,neighbourhood,locality,localadmin,county,region',
-      });
-
-      const res = await fetch(`https://api.openrouteservice.org/geocode/autocomplete?${params}`);
+      const res = await fetch(`/api/geocode/autocomplete?q=${encodeURIComponent(query)}`);
       const data = await res.json();
 
-      const results: Suggestion[] = (data?.features || []).map((f: any) => ({
-        label: f.properties.label,
-        value: f.properties.label,
-        coords: f.geometry.coordinates as [number, number],
-      }));
-
+      const results: Suggestion[] = data.results || [];
       setSuggestions(results);
       setOpen(results.length > 0);
     } catch {
