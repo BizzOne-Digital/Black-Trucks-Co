@@ -80,16 +80,33 @@ function Hero() {
   };
 
   const handleBook = () => {
+    if (!date) { setError('Please select a date.'); return; }
+    if (!time) { setError('Please select a pickup time.'); return; }
+
     const bookingData = {
-      pickup, dropoff: mode === 'oneway' ? dropoff : pickup, date, time,
+      pickup,
+      dropoff: mode === 'oneway' ? dropoff : pickup,
+      date,
+      time,
       distance: result?.distance ?? 0,
       duration: mode === 'hourly' ? bookedHours * 60 : (result?.duration ?? 60),
       hours: mode === 'hourly' ? bookedHours : undefined,
-      serviceType: mode === 'hourly' ? 'hourly' : 'oneway',
+      serviceType: mode === 'hourly' ? 'hourly' : 'transfer',
       _ts: Date.now(),
     };
     sessionStorage.setItem('bookingData', JSON.stringify(bookingData));
     router.push('/vehicles');
+  };
+
+  const handleGetQuoteOrBook = async () => {
+    if (!date) { setError('Please select a date.'); return; }
+    if (!time) { setError('Please select a pickup time.'); return; }
+
+    // If we already have a result, go straight to vehicles
+    if (result) { handleBook(); return; }
+
+    // Otherwise calculate first
+    await handleCalculate();
   };
 
   return (
@@ -167,9 +184,15 @@ function Hero() {
               </div>
 
               <div className="flex items-center px-4 py-3 sm:py-0">
-                <button onClick={handleCalculate} disabled={!canCalculate || loading}
+                <button onClick={handleGetQuoteOrBook} disabled={!canCalculate || loading}
                   className="w-full sm:w-auto bg-white text-black hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed px-6 py-2.5 rounded-full text-sm font-semibold transition-colors whitespace-nowrap flex items-center justify-center gap-2">
-                  {loading ? <><Loader2 className="h-4 w-4 animate-spin" />Calculating...</> : 'Get a Quote'}
+                  {loading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" />Calculating...</>
+                  ) : result ? (
+                    <>Select Vehicle <ArrowRight className="h-4 w-4" /></>
+                  ) : (
+                    'Get a Quote'
+                  )}
                 </button>
               </div>
             </div>
@@ -186,12 +209,8 @@ function Hero() {
                   {mode === 'hourly' && (
                     <div><p className="text-xs text-white/50 mb-0.5">Booked duration</p><p className="font-bold text-white">{bookedHours} {bookedHours === 1 ? 'hour' : 'hours'}</p></div>
                   )}
-                  <div className="text-xs text-white/40 self-end">Select your vehicle to see pricing</div>
+                  <div className="text-xs text-white/40 self-end">Click "Select Vehicle" above to continue →</div>
                 </div>
-                <button onClick={handleBook}
-                  className="bg-white text-black hover:bg-gray-100 px-5 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2">
-                  Select Vehicle <ArrowRight className="h-4 w-4" />
-                </button>
               </div>
             )}
           </div>
