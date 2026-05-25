@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      paymentStatus: checkoutSession.payment_status,
+      paymentStatus: booking?.paymentStatus ?? checkoutSession.payment_status,
       checkoutStatus: checkoutSession.status,
       reference: booking?.reference ?? null,
       pickup: booking?.pickup ?? checkoutSession.metadata?.pickupLocation ?? null,

@@ -18,6 +18,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Reject past bookings (5 min grace for clock skew)
+    const bookingDateTime = new Date(`${date}T${time}`);
+    if (isNaN(bookingDateTime.getTime()) || bookingDateTime.getTime() < Date.now() - 5 * 60 * 1000) {
+      return NextResponse.json({ error: 'Booking date and time must be in the future.' }, { status: 400 });
+    }
+
     const db = await getDb();
     const vehicleOid = parseId(vehicleId);
     if (!vehicleOid) return NextResponse.json({ error: 'Invalid vehicleId' }, { status: 400 });

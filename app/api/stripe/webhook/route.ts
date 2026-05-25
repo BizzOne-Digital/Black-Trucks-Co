@@ -50,19 +50,30 @@ export async function POST(req: NextRequest) {
     }
 
     const booking = await db.collection('Booking').findOne({ _id: docId });
+    // Skip if already fully paid
     if (!booking || booking.paymentStatus === 'paid') return NextResponse.json({ received: true });
+
+    const isDeposit = session.metadata?.depositOnly === 'true';
+    const depositAmt = isDeposit ? parseFloat(session.metadata?.depositAmount || '0') : 0;
 
     await db.collection('Booking').updateOne({ _id: docId }, {
       $set: {
-        paymentStatus: 'paid', status: 'confirmed',
+        // deposit_paid = deposit received, balance due on day; paid = full amount paid
+        paymentStatus: isDeposit ? 'deposit_paid' : 'paid',
+        status: 'confirmed',
         stripeCheckoutSessionId: session.id,
+        ...(isDeposit ? { depositAmount: depositAmt } : {}),
         ...(stripeChargeId ? { stripeChargeId } : {}),
         updatedAt: new Date(),
       },
     });
 
-    const vehicle = booking.vehicleId ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } }) : null;
-    const user = booking.userId ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } }) : null;
+    const vehicle = booking.vehicleId
+      ? await db.collection('Vehicle').findOne({ _id: oid(booking.vehicleId?.toString()) }, { projection: { name: 1 } })
+      : null;
+    const user = booking.userId
+      ? await db.collection('User').findOne({ _id: oid(booking.userId?.toString()) }, { projection: { name: 1, email: 1 } })
+      : null;
     const email = booking.guestEmail || user?.email;
     const name = booking.guestName || user?.name || 'Customer';
 

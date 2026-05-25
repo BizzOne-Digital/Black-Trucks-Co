@@ -5,13 +5,16 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import {
   MapPin, Calendar, Car, Tag, Lock, Loader2,
-  CheckCircle, User, Banknote, CreditCard,
+  CheckCircle, User, CreditCard, Info,
 } from 'lucide-react';
 import { BookingData, billableHours } from '@/lib/types';
 import { useSession } from 'next-auth/react';
 
-// ─── Stripe Hosted Checkout ───────────────────────────────────────────────────
-function CardPaymentSection({
+// ─── Configurable deposit amount (CAD) ───────────────────────────────────────
+const DEPOSIT_AMOUNT = 40;
+
+// ─── Deposit payment section ──────────────────────────────────────────────────
+function DepositSection({
   booking,
   promoCode,
   promoResult,
@@ -26,6 +29,7 @@ function CardPaymentSection({
   const [error, setError] = useState('');
 
   const tripType = booking.service?.id || booking.serviceType;
+  const remaining = Math.max(0, total - DEPOSIT_AMOUNT);
 
   if (!tripType) {
     return (
@@ -52,12 +56,13 @@ function CardPaymentSection({
           duration: booking.duration,
           promoCode: promoResult?.valid ? promoCode : undefined,
           serviceType: tripType,
+          depositOnly: true,
+          depositAmount: DEPOSIT_AMOUNT,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not start checkout');
       if (!data.url) throw new Error('No checkout URL returned');
-      // Redirect to Stripe Hosted Checkout
       window.location.href = data.url;
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
@@ -66,18 +71,39 @@ function CardPaymentSection({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Info */}
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-1">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
-          <p className="text-sm font-semibold text-blue-800">Secure card payment via Stripe</p>
+    <div className="space-y-5">
+      {/* Deposit breakdown */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+          <p className="text-xs text-blue-500 uppercase tracking-wide mb-1">Deposit due now</p>
+          <p className="text-2xl font-bold text-blue-700">${DEPOSIT_AMOUNT.toFixed(2)}</p>
+          <p className="text-xs text-blue-500 mt-0.5">Paid online via Stripe</p>
         </div>
-        <ul className="text-xs text-blue-700 space-y-1 pl-6 list-disc">
-          <li>You will be redirected to Stripe&apos;s secure checkout page</li>
-          <li>Accepts Visa, Mastercard, Amex, Apple Pay &amp; Google Pay</li>
-          <li>Your card details are never stored on our servers</li>
-          <li>Amount: <span className="font-bold">${total.toFixed(2)} CAD</span></li>
+        <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Balance on the day</p>
+          <p className="text-2xl font-bold text-gray-700">${remaining.toFixed(2)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Paid to driver at pickup</p>
+        </div>
+      </div>
+
+      {/* Info list */}
+      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <CreditCard className="h-4 w-4 text-blue-600 flex-shrink-0" />
+          <p className="text-sm font-semibold text-blue-800">Online deposit required to confirm booking</p>
+        </div>
+        <ul className="text-xs text-blue-700 space-y-1.5 pl-1">
+          {[
+            `A $${DEPOSIT_AMOUNT} deposit is charged now to secure your booking`,
+            `Remaining $${remaining.toFixed(2)} balance is paid directly to your driver on pickup`,
+            'Accepts Visa, Mastercard, Amex, Apple Pay & Google Pay',
+            'Deposit is refundable if cancelled 24+ hours before pickup',
+          ].map((item, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <CheckCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+              {item}
+            </li>
+          ))}
         </ul>
       </div>
 
@@ -94,104 +120,15 @@ function CardPaymentSection({
         className="w-full bg-black hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed text-white py-3.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
       >
         {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Redirecting to Stripe…
-          </>
+          <><Loader2 className="h-4 w-4 animate-spin" /> Redirecting to Stripe…</>
         ) : (
-          <>
-            <Lock className="h-4 w-4" />
-            Pay ${total.toFixed(2)} securely with Stripe
-          </>
+          <><Lock className="h-4 w-4" /> Pay ${DEPOSIT_AMOUNT.toFixed(2)} Deposit &amp; Confirm Booking</>
         )}
       </button>
 
       <p className="text-xs text-gray-400 text-center flex items-center justify-center gap-1.5">
         <Lock className="h-3 w-3" />
         Powered by Stripe · 256-bit SSL encryption
-      </p>
-    </div>
-  );
-}
-
-// ─── Cash form ────────────────────────────────────────────────────────────────
-function CashForm({
-  booking,
-  promoCode,
-  promoResult,
-  total,
-  onSuccess,
-}: {
-  booking: BookingData;
-  promoCode: string;
-  promoResult: any;
-  total: number;
-  onSuccess: (ref: string, bookingId: string) => void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleConfirm = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/bookings/cash', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vehicleId: booking.vehicle!.id,
-          pickup: booking.pickup,
-          dropoff: booking.dropoff,
-          date: booking.date,
-          time: booking.time,
-          distance: booking.distance,
-          duration: booking.duration,
-          promoCode: promoResult?.valid ? promoCode : undefined,
-          serviceType: booking.service?.id,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to confirm booking');
-      onSuccess(data.booking.reference, data.booking.id);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <Banknote className="h-4 w-4 text-amber-600 flex-shrink-0" />
-          <p className="text-sm font-semibold text-amber-800">Pay cash to your driver</p>
-        </div>
-        <ul className="text-xs text-amber-700 space-y-1 pl-6 list-disc">
-          <li>Your booking is confirmed immediately — no card needed</li>
-          <li>Pay the driver in cash on the day of your ride</li>
-          <li>A confirmation email will be sent to you right away</li>
-          <li>Amount due: <span className="font-bold">${total.toFixed(2)}</span></li>
-        </ul>
-      </div>
-
-      {error && (
-        <p className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3">{error}</p>
-      )}
-
-      <button
-        onClick={handleConfirm}
-        disabled={loading}
-        className="w-full bg-black hover:bg-gray-800 disabled:opacity-50 text-white py-3.5 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
-      >
-        {loading ? (
-          <><Loader2 className="h-4 w-4 animate-spin" /> Confirming booking…</>
-        ) : (
-          <><CheckCircle className="h-4 w-4" /> Confirm Booking — Pay Cash</>
-        )}
-      </button>
-      <p className="text-xs text-gray-400 text-center">
-        By confirming you agree to our terms and cancellation policy
       </p>
     </div>
   );
@@ -205,7 +142,6 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState('');
   const [promoResult, setPromoResult] = useState<{ valid: boolean; discount?: number; error?: string } | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
-  const [payMethod, setPayMethod] = useState<'cash' | 'card'>('cash');
 
   useEffect(() => {
     const saved = sessionStorage.getItem('bookingData');
@@ -241,6 +177,7 @@ export default function CheckoutPage() {
   const tax = ridePrice * 0.1;
   const discount = promoResult?.valid ? promoResult.discount || 0 : 0;
   const total = ridePrice + serviceFee + tax - discount;
+  const remaining = Math.max(0, total - DEPOSIT_AMOUNT);
 
   const applyPromo = async () => {
     if (!promoCode.trim()) return;
@@ -252,15 +189,6 @@ export default function CheckoutPage() {
     });
     setPromoResult(await res.json());
     setPromoLoading(false);
-  };
-
-  const handleCashSuccess = (ref: string, bookingId: string) => {
-    sessionStorage.setItem('confirmedBooking', JSON.stringify({
-      ...booking, reference: ref, bookingId,
-      totalPrice: total, discount, paymentMethod: 'cash',
-    }));
-    sessionStorage.removeItem('bookingData');
-    router.push('/confirmation');
   };
 
   const inputCls = 'w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors';
@@ -358,64 +286,19 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Payment method */}
+            {/* Deposit payment */}
             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-100">
-                <h2 className="font-bold text-base">Payment Method</h2>
+              <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-blue-600" />
+                <h2 className="font-bold text-base">Secure Your Booking</h2>
               </div>
               <div className="px-6 pt-5 pb-6">
-                {/* Toggle */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <button
-                    type="button"
-                    onClick={() => setPayMethod('cash')}
-                    className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 transition-all ${
-                      payMethod === 'cash'
-                        ? 'border-black bg-black text-white'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    <Banknote className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Cash</span>
-                    <span className={`text-xs ${payMethod === 'cash' ? 'text-gray-300' : 'text-gray-400'}`}>
-                      Pay driver on the day
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPayMethod('card')}
-                    className={`flex flex-col items-center gap-2 py-4 px-3 rounded-xl border-2 transition-all ${
-                      payMethod === 'card'
-                        ? 'border-blue-600 bg-black text-white'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
-                    }`}
-                  >
-                    <CreditCard className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Card</span>
-                    <span className={`text-xs ${payMethod === 'card' ? 'text-blue-200' : 'text-gray-400'}`}>
-                      Visa · Mastercard · Apple Pay
-                    </span>
-                  </button>
-                </div>
-
-                {/* Payment form */}
-                {payMethod === 'cash' ? (
-                  <CashForm
-                    booking={booking}
-                    promoCode={promoCode}
-                    promoResult={promoResult}
-                    total={total}
-                    onSuccess={handleCashSuccess}
-                  />
-                ) : (
-                  <CardPaymentSection
-                    booking={booking}
-                    promoCode={promoCode}
-                    promoResult={promoResult}
-                    total={total}
-                  />
-                )}
+                <DepositSection
+                  booking={booking}
+                  promoCode={promoCode}
+                  promoResult={promoResult}
+                  total={total}
+                />
               </div>
             </div>
           </div>
@@ -452,19 +335,29 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex justify-between border-t pt-3 font-bold text-base">
                   <span>Total</span>
-                  <span className={payMethod === 'card' ? 'text-blue-600' : 'text-black'}>
-                    ${total.toFixed(2)}
-                  </span>
+                  <span>${total.toFixed(2)}</span>
                 </div>
+
+                {/* Deposit split */}
+                <div className="border-t pt-3 space-y-2">
+                  <div className="flex justify-between text-blue-700 font-semibold text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <CreditCard className="h-3.5 w-3.5" /> Deposit (due now)
+                    </span>
+                    <span>${DEPOSIT_AMOUNT.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-500 text-sm">
+                    <span className="flex items-center gap-1.5">
+                      <Info className="h-3.5 w-3.5" /> Balance (pay driver)
+                    </span>
+                    <span>${remaining.toFixed(2)}</span>
+                  </div>
+                </div>
+
                 <div className="pt-1 text-xs text-gray-400 space-y-1">
                   <p>· {booking.distance} km · {hours} hr estimated</p>
                   <p>· Free cancellation 24h before pickup</p>
-                  {payMethod === 'cash' && (
-                    <p className="text-amber-600 font-medium">· Cash due to driver on pickup</p>
-                  )}
-                  {payMethod === 'card' && (
-                    <p className="text-blue-600 font-medium">· Charged in CAD via Stripe</p>
-                  )}
+                  <p className="text-blue-600 font-medium">· ${DEPOSIT_AMOUNT} deposit charged in CAD via Stripe</p>
                 </div>
               </div>
             </div>

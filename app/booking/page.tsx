@@ -55,7 +55,19 @@ function BookingForm() {
   const valid = () => {
     if (step === 0) return !!data.service;
     if (step === 1) return !!(data.pickup && data.dropoff);
-    if (step === 2) return !!(data.date && data.time);
+    if (step === 2) {
+      if (!data.date || !data.time) return false;
+      // Reject past date
+      const todayStr = new Date().toISOString().split('T')[0];
+      if (data.date < todayStr) return false;
+      // Reject past time on today
+      if (data.date === todayStr) {
+        const now = new Date(Date.now() + 30 * 60 * 1000);
+        const minT = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        if (data.time < minT) return false;
+      }
+      return true;
+    }
     return true;
   };
 
@@ -223,19 +235,53 @@ function BookingForm() {
             )}
 
             {/* ── Step 2: Date & Time ── */}
-            {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <label className={labelCls}><Calendar className="inline h-3.5 w-3.5 mr-1" />Date</label>
-                  <input type="date" value={data.date} onChange={e => set('date', e.target.value)}
-                    min={new Date().toISOString().split('T')[0]} className={inputCls} />
+            {step === 2 && (() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isToday = data.date === todayStr;
+              // Min time: now + 30 min (only enforced when date is today)
+              const minTime = (() => {
+                if (!isToday) return undefined;
+                const d = new Date(Date.now() + 30 * 60 * 1000);
+                return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+              })();
+              return (
+                <div className="space-y-5">
+                  <div>
+                    <label className={labelCls}><Calendar className="inline h-3.5 w-3.5 mr-1" />Date</label>
+                    <input
+                      type="date"
+                      value={data.date}
+                      min={todayStr}
+                      onChange={e => {
+                        set('date', e.target.value);
+                        // Clear time if switching to today and saved time is now in the past
+                        if (data.time && e.target.value === todayStr) {
+                          const now = new Date(Date.now() + 30 * 60 * 1000);
+                          const minT = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                          if (data.time < minT) set('time', '');
+                        }
+                      }}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}><Clock className="inline h-3.5 w-3.5 mr-1" />Time</label>
+                    <input
+                      type="time"
+                      value={data.time}
+                      min={minTime}
+                      onChange={e => set('time', e.target.value)}
+                      className={inputCls}
+                    />
+                    {isToday && (
+                      <p className="text-xs text-gray-400 mt-1.5">
+                        Same-day bookings require at least 30 minutes notice.
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label className={labelCls}><Clock className="inline h-3.5 w-3.5 mr-1" />Time</label>
-                  <input type="time" value={data.time} onChange={e => set('time', e.target.value)} className={inputCls} />
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ── Step 3: Summary ── */}
             {step === 3 && (

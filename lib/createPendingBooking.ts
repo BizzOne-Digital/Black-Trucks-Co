@@ -38,6 +38,12 @@ export async function createPendingBooking(
     return { ok: false, status: 400, error: 'Missing required fields' };
   }
 
+  // Reject past bookings (allow up to 5 min grace for clock skew)
+  const bookingDateTime = new Date(`${date}T${time}`);
+  if (isNaN(bookingDateTime.getTime()) || bookingDateTime.getTime() < Date.now() - 5 * 60 * 1000) {
+    return { ok: false, status: 400, error: 'Booking date and time must be in the future.' };
+  }
+
   const db = await getDb();
   const vehicleOid = parseId(vehicleId);
   if (!vehicleOid) return { ok: false, status: 400, error: 'Invalid vehicleId' };

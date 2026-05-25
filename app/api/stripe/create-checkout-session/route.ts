@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { vehicleId, pickup, dropoff, date, time, distance, duration, passengers, promoCode, serviceType } = body;
+    const { vehicleId, pickup, dropoff, date, time, distance, duration, passengers, promoCode, serviceType, depositOnly, depositAmount } = body;
 
     if (!serviceType || typeof serviceType !== 'string') {
       return NextResponse.json({ error: 'Trip type (service) is required' }, { status: 400 });
@@ -26,6 +26,12 @@ export async function POST(req: NextRequest) {
     }
     if (!date || !time) {
       return NextResponse.json({ error: 'Pickup date and time are required' }, { status: 400 });
+    }
+
+    // Reject past bookings (5 min grace for clock skew)
+    const bookingDateTime = new Date(`${date}T${time}`);
+    if (isNaN(bookingDateTime.getTime()) || bookingDateTime.getTime() < Date.now() - 5 * 60 * 1000) {
+      return NextResponse.json({ error: 'Booking date and time must be in the future.' }, { status: 400 });
     }
 
     const dist = Number(distance);
@@ -86,7 +92,13 @@ export async function POST(req: NextRequest) {
 
     const bookingId = booking.id || booking._id?.toString();
     const customerEmail = authSession.user.email ?? undefined;
-    const unitAmount = Math.round(booking.totalPrice * 100);
+    // If depositOnly, charge only the deposit amount; otherwise charge full total
+    const chargeAmount = depositOnly && depositAmount
+      ? Math.round(Number(depositAmount) * 100)
+      : Math.round(booking.totalPrice * 100);
+    const productName = depositOnly
+      ? `Black Trucks Co — Booking Deposit (Ref: ${booking.reference})`
+      : 'Black Trucks Co Chauffeur Booking';
     const siteUrl = getSiteUrl();
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -95,8 +107,8 @@ export async function POST(req: NextRequest) {
       line_items: [{
         price_data: {
           currency: 'cad',
-          unit_amount: unitAmount,
-          product_data: { name: 'Black Trucks Co Chauffeur Booking' },
+          unit_amount: chargeAmount,
+          product_data: { name: productName },
         },
         quantity: 1,
       }],
@@ -109,6 +121,8 @@ export async function POST(req: NextRequest) {
         dropoffLocation: dropoff,
         pickupDate: date,
         pickupTime: time,
+        depositOnly: depositOnly ? 'true' : 'false',
+        depositAmount: depositOnly ? String(depositAmount) : '',
       },
       payment_intent_data: { metadata: { bookingId } },
     });

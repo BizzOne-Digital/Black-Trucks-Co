@@ -179,6 +179,14 @@ function Hero() {
                 <div className="flex-1 px-4 sm:px-5 py-3 sm:py-4 sm:min-w-[130px]">
                   <p className="text-xs font-semibold text-white/60 uppercase tracking-wide mb-1">Pickup time</p>
                   <input type="time" value={time} onChange={e => setTime(e.target.value)}
+                    min={(() => {
+                      const todayStr = new Date().toISOString().split('T')[0];
+                      if (date === todayStr) {
+                        const d = new Date(Date.now() + 30 * 60 * 1000);
+                        return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                      }
+                      return undefined;
+                    })()}
                     className="text-sm text-white outline-none w-full bg-transparent [color-scheme:dark]" />
                 </div>
               </div>
