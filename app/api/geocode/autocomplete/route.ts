@@ -2,48 +2,111 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// Priority cities — results containing these are ranked first
-const PRIORITY_CITIES = [
-  'toronto', 'mississauga', 'brampton', 'vaughan', 'markham',
-  'scarborough', 'north york', 'etobicoke', 'richmond hill',
-  'oakville', 'burlington', 'ajax', 'pickering', 'whitby',
-  'oshawa', 'newmarket', 'aurora', 'king city', 'woodbridge',
-  'montreal', 'new york', 'brooklyn', 'manhattan', 'queens',
-  'bronx', 'newark', 'jersey city',
-];
+// Format a Photon feature into a clean readable label
+function formatPhotonLabel(f: any): string {
+  const p = f.properties || {};
+  const parts: string[] = [];
 
-function priorityScore(label: string): number {
-  const lower = label.toLowerCase();
-  for (let i = 0; i < PRIORITY_CITIES.length; i++) {
-    if (lower.includes(PRIORITY_CITIES[i])) return i;
+  // Street address
+  if (p.housenumber && p.street) {
+    parts.push(`${p.housenumber} ${p.street}`);
+  } else if (p.street) {
+    parts.push(p.street);
+  } else if (p.name) {
+    parts.push(p.name);
   }
-  return PRIORITY_CITIES.length;
+
+  // Suburb / district
+  if (p.district && p.district !== p.city) parts.push(p.district);
+  else if (p.suburb && p.suburb !== p.city) parts.push(p.suburb);
+
+  // City
+  const city = p.city || p.town || p.village || '';
+  if (city) parts.push(city);
+
+  // Province
+  if (p.state) parts.push(p.state);
+
+  return parts.filter(Boolean).join(', ');
+}
+
+// Deduplicate results by label
+function dedupe(results: any[]): any[] {
+  const seen = new Set<string>();
+  return results.filter(r => {
+    if (seen.has(r.label)) return false;
+    seen.add(r.label);
+    return true;
+  });
 }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('q');
 
-  if (!query || query.length < 3) {
+  if (!query || query.length < 2) {
     return NextResponse.json({ results: [] });
   }
 
   try {
-    const orsKey = process.env.ORS_API_KEY;
+    // ── Primary: Photon (OpenStreetMap-based, free, no key, great prefix matching) ──
+    // Focus on Toronto, bounding box around GTA
+    const photonParams = new URLSearchParams({
+      q: query,
+      limit: '8',
+      lang: 'en',
+      lon: '-79.3832',  // focus: Toronto
+      lat: '43.6532',
+    });
 
+    const photonRes = await fetch(
+      `https://photon.komoot.io/api/?${photonParams}`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+          'User-Agent': 'BlackTrucksCo/1.0',
+        },
+      }
+    );
+
+    if (photonRes.ok) {
+      const data = await photonRes.json();
+      const features: any[] = data?.features || [];
+
+      // Filter to Canada only and GTA/Ontario area
+      const filtered = features.filter((f: any) => {
+        const p = f.properties || {};
+        if (p.country !== 'Canada') return false;
+        // Keep Ontario results, or results near Toronto (within ~200km)
+        const [lon, lat] = f.geometry?.coordinates || [0, 0];
+        const inOntario = p.state === 'Ontario';
+        const nearToronto = Math.abs(lon - (-79.38)) < 3 && Math.abs(lat - 43.65) < 2;
+        return inOntario || nearToronto;
+      });
+
+      if (filtered.length > 0) {
+        const results = dedupe(
+          filtered.map((f: any) => ({
+            label: formatPhotonLabel(f),
+            value: formatPhotonLabel(f),
+            coords: f.geometry.coordinates as [number, number],
+          })).filter(r => r.label.length > 0)
+        );
+        if (results.length > 0) return NextResponse.json({ results });
+      }
+    }
+
+    // ── Fallback: ORS with focus on Toronto ──────────────────────────────
+    const orsKey = process.env.ORS_API_KEY;
     if (orsKey) {
-      // ORS with bounding box: covers GTA → Montreal → New York corridor
       const params = new URLSearchParams({
         api_key: orsKey,
         text: query,
-        size: '10',
-        // Bounding box: SW corner (NY area) to NE corner (Montreal area)
-        'boundary.rect.min_lon': '-79.9',
-        'boundary.rect.min_lat': '40.4', // includes New York
-        'boundary.rect.max_lon': '-73.4',
-        'boundary.rect.max_lat': '45.7', // includes Montreal
-        'boundary.country': 'CA,US',
-        layers: 'venue,address,street,neighbourhood,locality,localadmin,county',
+        size: '8',
+        layers: 'address,street,venue,neighbourhood,locality',
+        'focus.point.lon': '-79.3832',
+        'focus.point.lat': '43.6532',
+        'boundary.country': 'CA',
         lang: 'en',
       });
 
@@ -55,59 +118,18 @@ export async function GET(req: NextRequest) {
       if (res.ok) {
         const data = await res.json();
         const features: any[] = data?.features || [];
-
-        const results = features
-          .map((f: any) => ({
+        if (features.length > 0) {
+          const results = features.map((f: any) => ({
             label: f.properties.label,
             value: f.properties.label,
             coords: f.geometry.coordinates as [number, number],
-            _score: priorityScore(f.properties.label),
-          }))
-          .sort((a, b) => a._score - b._score)
-          .slice(0, 8)
-          .map(({ _score: _s, ...r }) => r);
-
-        if (results.length > 0) return NextResponse.json({ results });
+          }));
+          return NextResponse.json({ results });
+        }
       }
     }
 
-    // Fallback: Nominatim restricted to CA + US with viewbox around GTA/NY/Montreal
-    const nominatimRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?` +
-        new URLSearchParams({
-          q: query,
-          format: 'json',
-          addressdetails: '1',
-          limit: '10',
-          countrycodes: 'ca,us',
-          // viewbox: W, N, E, S  (GTA to NY corridor)
-          viewbox: '-79.9,45.7,-73.4,40.4',
-          bounded: '0', // soft bound — prefer inside but allow nearby
-        }),
-      {
-        headers: {
-          'User-Agent': 'BlackTrucksCo/1.0 (blacktrucksco@hotmail.com)',
-          'Accept-Language': 'en',
-        },
-      }
-    );
-
-    if (!nominatimRes.ok) return NextResponse.json({ results: [] });
-
-    const nominatimData: any[] = await nominatimRes.json();
-
-    const results = nominatimData
-      .map((item: any) => ({
-        label: item.display_name,
-        value: item.display_name,
-        coords: [parseFloat(item.lon), parseFloat(item.lat)] as [number, number],
-        _score: priorityScore(item.display_name),
-      }))
-      .sort((a, b) => a._score - b._score)
-      .slice(0, 8)
-      .map(({ _score: _s, ...r }) => r);
-
-    return NextResponse.json({ results });
+    return NextResponse.json({ results: [] });
   } catch {
     return NextResponse.json({ results: [] });
   }
