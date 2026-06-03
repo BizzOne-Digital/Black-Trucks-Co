@@ -1,4 +1,15 @@
-const tests = ['80 Hummin', '80 Hummingbird', 'King St', '100 Queen', 'Pearson Airport', 'Yonge Bloor'];
+const tests = [
+  '80 Hummin',
+  '80 Hummingbird',
+  'King St',
+  '100 Queen',
+  'Pearson Airport',
+  'Toronto Pearson',
+  'Yonge Bloor',
+  'Toronto airport',
+  'Mississauga',
+  'Brampton',
+];
 
 (async () => {
   for (const q of tests) {

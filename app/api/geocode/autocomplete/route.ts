@@ -7,6 +7,18 @@ function formatPhotonLabel(f: any): string {
   const p = f.properties || {};
   const parts: string[] = [];
 
+  // Special case: known airports — return clean names
+  const name = p.name || '';
+  if (/pearson|YYZ/i.test(name) || (p.osm_value === 'aerodrome' && /pearson/i.test(name))) {
+    return 'Toronto Pearson International Airport, Mississauga, ON';
+  }
+  if (/billy bishop|YTZ/i.test(name)) {
+    return 'Billy Bishop Toronto City Airport, Toronto, ON';
+  }
+  if (/airport|aerodrome/i.test(name) && (p.city || p.town)) {
+    return `${name}, ${p.city || p.town}, ON`;
+  }
+
   // Street address
   if (p.housenumber && p.street) {
     parts.push(`${p.housenumber} ${p.street}`);
@@ -46,6 +58,19 @@ export async function GET(req: NextRequest) {
 
   if (!query || query.length < 2) {
     return NextResponse.json({ results: [] });
+  }
+
+  // Hardcoded well-known Toronto locations for instant clean results
+  const KNOWN_PLACES = [
+    { match: /pearson|yyz|toronto.*airport|airport.*toronto/i, label: 'Toronto Pearson International Airport, Mississauga, ON', coords: [-79.6248, 43.6777] as [number, number] },
+    { match: /billy bishop|ytز|island.*airport/i, label: 'Billy Bishop Toronto City Airport, Toronto, ON', coords: [-79.3963, 43.6275] as [number, number] },
+    { match: /union station/i, label: 'Union Station, Toronto, ON', coords: [-79.3806, 43.6453] as [number, number] },
+  ];
+
+  for (const place of KNOWN_PLACES) {
+    if (place.match.test(query)) {
+      return NextResponse.json({ results: [{ label: place.label, value: place.label, coords: place.coords }] });
+    }
   }
 
   try {
