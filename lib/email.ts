@@ -62,7 +62,7 @@ export async function sendBookingConfirmation(data: BookingEmailData) {
               <strong>Cash Payment Reminder:</strong> Please have <strong>$${data.totalPrice.toFixed(2)}</strong> ready to pay your driver at pickup.
             </p>
           </div>` : ''}
-          <p style="color:#555;font-size:14px;">Your chauffeur will arrive 15 minutes early. For any changes, contact us at <a href="mailto:Blacktrucksco@hotmail.com">Blacktrucksco@hotmail.com</a> or call <a href="tel:6477066325">647-706-6325</a>.</p>
+          <p style="color:#555;font-size:14px;">Your chauffeur will arrive 15 minutes early. For any changes, contact us at <a href="mailto:BlackTrucksCo@gmail.com">BlackTrucksCo@gmail.com</a> or call <a href="tel:6477066325">647-706-6325</a>.</p>
         </div>
         <div style="background:#f9f9f9;padding:16px;text-align:center;font-size:12px;color:#999;">
           © ${new Date().getFullYear()} Black Trucks Co. All rights reserved.
@@ -76,6 +76,7 @@ export async function sendCancellationEmail(data: { to: string; name: string; re
   await transporter.sendMail({
     from: `"Black Trucks Co" <${process.env.EMAIL_FROM}>`,
     to: data.to,
+    bcc: process.env.ADMIN_EMAIL,
     subject: `Booking Cancelled – ${data.reference}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
@@ -349,7 +350,7 @@ export async function sendStatusUpdateEmail(data: {
               <td style="padding:10px 16px;font-size:13px;font-weight:bold;">${data.driverName}${data.driverPhone ? ` · ${data.driverPhone}` : ''}</td>
             </tr>` : ''}
           </table>
-          <p style="color:#999;font-size:12px;">Questions? Call <a href="tel:6477066325" style="color:#000;">647-706-6325</a> or email <a href="mailto:Blacktrucksco@hotmail.com" style="color:#000;">Blacktrucksco@hotmail.com</a></p>
+          <p style="color:#999;font-size:12px;">Questions? Call <a href="tel:6477066325" style="color:#000;">647-706-6325</a> or email <a href="mailto:BlackTrucksCo@gmail.com" style="color:#000;">BlackTrucksCo@gmail.com</a></p>
         </div>
         <div style="background:#f9f9f9;padding:16px;text-align:center;font-size:12px;color:#999;">
           © ${new Date().getFullYear()} Black Trucks Co. All rights reserved.
