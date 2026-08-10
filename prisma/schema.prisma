@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+model Vehicle {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  category    String
+  image       String
+  pricePerHour Float
+  minimumHours Int       @default(1)
+  passengers  Int
+  luggage     Int
+  description String
+  features    String[]
+  available   Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  bookings    Booking[]
+  reviews     Review[]
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String    @unique
+  password      String?
+  phone         String?
+  role          String    @default("user")
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[] @relation("UserBookings")
+  driven        Booking[] @relation("DriverBookings")
+  reviews       Review[]
+  abandonedBooking AbandonedBooking?
+}
+
+model Booking {
+  id                   String    @id @default(auto()) @map("_id") @db.ObjectId
+  reference            String    @unique
+  userId               String?   @db.ObjectId
+  user                 User?     @relation("UserBookings", fields: [userId], references: [id])
+  guestEmail           String?
+  guestName            String?
+  guestPhone           String?
+  vehicleId            String    @db.ObjectId
+  vehicle              Vehicle   @relation(fields: [vehicleId], references: [id])
+  driverId             String?   @db.ObjectId
+  driver               User?     @relation("DriverBookings", fields: [driverId], references: [id])
+  pickup               String
+  dropoff              String
+  date                 String
+  time                 String
+  distance             Float
+  duration             Float
+  passengers           Int       @default(1)
+  ridePrice            Float
+  serviceFee           Float     @default(5)
+  tax                  Float
+  discount             Float     @default(0)
+  totalPrice           Float
+  promoCode            String?
+  serviceType          String?
+  status               String    @default("pending")
+  stripePaymentIntentId String?
+  stripeChargeId       String?
+  paymentStatus        String    @default("pending")
+  paymentMethod        String    @default("cash")
+  notes                String?
+  cancelReason         String?
+  cancelledAt          DateTime?
+  completedAt          DateTime?
+  reviewSent           Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  review               Review?
+}
+
+model AbandonedBooking {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @unique @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  pickup      String
+  dropoff     String
+  date        String?
+  time        String?
+  distance    Float?
+  duration    Float?
+  serviceType String?
+  vehicleId   String?
+  step        Int      @default(0)
+  emailSent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PromoCode {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  code              String   @unique
+  discountType      String
+  discountValue     Float
+  maxUses           Int      @default(100)
+  usedCount         Int      @default(0)
+  minBookingAmount  Float    @default(0)
+  expiresAt         DateTime
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+}
+
+model Review {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  bookingId String   @unique @db.ObjectId
+  booking   Booking  @relation(fields: [bookingId], references: [id])
+  userId    String?  @db.ObjectId
+  user      User?    @relation(fields: [userId], references: [id])
+  guestName String?
+  vehicleId String   @db.ObjectId
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
