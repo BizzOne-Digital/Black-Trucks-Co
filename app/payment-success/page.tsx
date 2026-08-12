@@ -80,13 +80,12 @@ function PaymentSuccessContent() {
   }
 
   const paid = data.paymentStatus === 'paid';
-  const depositPaid = data.paymentStatus === 'deposit_paid';
   const processing = data.paymentStatus === 'unpaid' && data.checkoutStatus === 'open';
 
   return (
     <div className="min-h-screen bg-gray-50 pt-12">
-      <div className={`px-4 py-12 text-center ${paid || depositPaid ? 'bg-black text-white' : processing ? 'bg-amber-500 text-white' : 'bg-gray-800 text-white'}`}>
-        {paid || depositPaid ? (
+      <div className={`px-4 py-12 text-center ${paid ? 'bg-black text-white' : processing ? 'bg-amber-500 text-white' : 'bg-gray-800 text-white'}`}>
+        {paid ? (
           <CheckCircle className="h-14 w-14 text-green-400 mx-auto mb-4" />
         ) : processing ? (
           <AlertCircle className="h-14 w-14 text-white mx-auto mb-4" />
@@ -94,16 +93,14 @@ function PaymentSuccessContent() {
           <AlertCircle className="h-14 w-14 text-amber-300 mx-auto mb-4" />
         )}
         <h1 className="text-2xl sm:text-3xl font-bold mb-2">
-          {paid ? 'Payment successful' : depositPaid ? 'Deposit received — booking confirmed!' : processing ? 'Payment processing' : 'Payment status'}
+          {paid ? 'Payment successful' : processing ? 'Payment processing' : 'Payment status'}
         </h1>
         <p className="text-gray-300 text-sm max-w-md mx-auto">
           {paid
-            ? 'Thank you — your chauffeur booking payment was received.'
-            : depositPaid
-              ? 'Your deposit has been received and your booking is confirmed. The remaining balance will be collected by your driver on the day of your ride.'
-              : processing
-                ? 'Your payment may still be processing. Refresh in a moment or check your email for confirmation.'
-                : 'If you completed checkout, confirmation email may follow shortly. Contact us if you need help.'}
+            ? 'Thank you — your chauffeur booking payment was received and your ride is confirmed.'
+            : processing
+              ? 'Your payment may still be processing. Refresh in a moment or check your email for confirmation.'
+              : 'If you completed checkout, confirmation email may follow shortly. Contact us if you need help.'}
         </p>
         {data.reference && (
           <p className="mt-6 text-sm">

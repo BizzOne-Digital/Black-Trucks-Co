@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import stripe from '@/lib/stripe';
 import { getDb, parseId, oid } from '@/lib/mongodb';
-import { sendBookingConfirmation } from '@/lib/email';
+import { sendBookingConfirmation, safeSend } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,16 +53,12 @@ export async function POST(req: NextRequest) {
     // Skip if already fully paid
     if (!booking || booking.paymentStatus === 'paid') return NextResponse.json({ received: true });
 
-    const isDeposit = session.metadata?.depositOnly === 'true';
-    const depositAmt = isDeposit ? parseFloat(session.metadata?.depositAmount || '0') : 0;
-
     await db.collection('Booking').updateOne({ _id: docId }, {
       $set: {
-        // deposit_paid = deposit received, balance due on day; paid = full amount paid
-        paymentStatus: isDeposit ? 'deposit_paid' : 'paid',
+        paymentStatus: 'paid',
         status: 'confirmed',
+        paymentMethod: 'card',
         stripeCheckoutSessionId: session.id,
-        ...(isDeposit ? { depositAmount: depositAmt } : {}),
         ...(stripeChargeId ? { stripeChargeId } : {}),
         updatedAt: new Date(),
       },
@@ -78,14 +74,23 @@ export async function POST(req: NextRequest) {
     const name = booking.guestName || user?.name || 'Customer';
 
     if (email) {
-      await sendBookingConfirmation({
-        to: email, name, reference: booking.reference,
-        pickup: booking.pickup, dropoff: booking.dropoff,
-        date: booking.date, time: booking.time,
-        vehicle: vehicle?.name || 'Vehicle',
-        totalPrice: booking.totalPrice, distance: booking.distance,
-        paymentMethod: 'card',
-      }).catch(e => console.error('[stripe/webhook] confirmation email failed', e));
+      await safeSend(
+        () =>
+          sendBookingConfirmation({
+            to: email,
+            name,
+            reference: booking.reference,
+            pickup: booking.pickup,
+            dropoff: booking.dropoff,
+            date: booking.date,
+            time: booking.time,
+            vehicle: vehicle?.name || 'Vehicle',
+            totalPrice: booking.totalPrice,
+            distance: booking.distance,
+            paymentMethod: 'card',
+          }),
+        'stripe checkout confirmation'
+      );
     }
   }
 

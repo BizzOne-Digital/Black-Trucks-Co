@@ -118,9 +118,6 @@ export default function ConfirmationPage() {
                   {(booking.discount || 0) > 0 && (
                     <p className="text-xs text-green-600">Saved ${booking.discount?.toFixed(2)}</p>
                   )}
-                  {booking.paymentMethod === 'cash' && (
-                    <p className="text-xs text-amber-600 font-medium mt-1">Pay cash to driver</p>
-                  )}
                   {booking.paymentMethod === 'card' && (
                     <p className="text-xs text-green-600 font-medium mt-1">Paid online</p>
                   )}

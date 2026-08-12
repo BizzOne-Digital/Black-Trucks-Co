@@ -109,10 +109,10 @@ export default function BookingsPage() {
                       </span>
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         b.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' :
-                        b.paymentMethod === 'cash' ? 'bg-amber-100 text-amber-700' :
+                        b.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-gray-100 text-gray-500'
                       }`}>
-                        {b.paymentMethod === 'cash' ? 'Cash' : b.paymentStatus}
+                        {b.paymentStatus === 'paid' ? 'Paid' : b.paymentStatus === 'pending' ? 'Pending payment' : b.paymentStatus}
                       </span>
                     </div>
                   </div>

@@ -72,7 +72,7 @@ model Booking {
   stripePaymentIntentId String?
   stripeChargeId       String?
   paymentStatus        String    @default("pending")
-  paymentMethod        String    @default("cash")
+  paymentMethod        String    @default("card")
   notes                String?
   cancelReason         String?
   cancelledAt          DateTime?

@@ -10,13 +10,20 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+      return NextResponse.json(
+        { error: 'Stripe is not configured. Add STRIPE_SECRET_KEY to your environment.' },
+        { status: 503 }
+      );
+    }
+
     const authSession = await getServerSession(authOptions);
     if (!authSession?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await req.json();
-    const { vehicleId, pickup, dropoff, date, time, distance, duration, passengers, promoCode, serviceType, depositOnly, depositAmount } = body;
+    const { vehicleId, pickup, dropoff, date, time, distance, duration, passengers, promoCode, serviceType } = body;
 
     if (!serviceType || typeof serviceType !== 'string') {
       return NextResponse.json({ error: 'Trip type (service) is required' }, { status: 400 });
@@ -92,13 +99,7 @@ export async function POST(req: NextRequest) {
 
     const bookingId = booking.id || booking._id?.toString();
     const customerEmail = authSession.user.email ?? undefined;
-    // If depositOnly, charge only the deposit amount; otherwise charge full total
-    const chargeAmount = depositOnly && depositAmount
-      ? Math.round(Number(depositAmount) * 100)
-      : Math.round(booking.totalPrice * 100);
-    const productName = depositOnly
-      ? `Black Trucks Co — Booking Deposit (Ref: ${booking.reference})`
-      : 'Black Trucks Co Chauffeur Booking';
+    const chargeAmount = Math.round(booking.totalPrice * 100);
     const siteUrl = getSiteUrl();
 
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
         price_data: {
           currency: 'cad',
           unit_amount: chargeAmount,
-          product_data: { name: productName },
+          product_data: { name: `Black Trucks Co — Booking (Ref: ${booking.reference})` },
         },
         quantity: 1,
       }],
@@ -121,8 +122,6 @@ export async function POST(req: NextRequest) {
         dropoffLocation: dropoff,
         pickupDate: date,
         pickupTime: time,
-        depositOnly: depositOnly ? 'true' : 'false',
-        depositAmount: depositOnly ? String(depositAmount) : '',
       },
       payment_intent_data: { metadata: { bookingId } },
     });

@@ -31,7 +31,7 @@ export async function createPendingBooking(
   const {
     vehicleId, pickup, dropoff, date, time, distance, duration,
     passengers, guestEmail, guestName, guestPhone, promoCode,
-    serviceType, paymentMethod = 'cash',
+    serviceType, paymentMethod = 'card',
   } = input;
 
   if (!vehicleId || !pickup || !dropoff || !date || !time) {

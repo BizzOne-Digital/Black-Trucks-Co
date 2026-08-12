@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       passengers: passengers || 1,
       ridePrice, serviceFee, tax, discount, totalPrice,
       promoCode, serviceType,
-      status: 'pending', paymentStatus: 'pending',
+      status: 'pending', paymentStatus: 'pending', paymentMethod: 'card',
     };
 
     if (session?.user) {
