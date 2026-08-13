@@ -34,23 +34,16 @@ export default function AddressInput({ placeholder, value, onChange, glass = fal
   }, []);
 
   const fetchSuggestions = async (query: string) => {
-    if (query.length < 3) { setSuggestions([]); setOpen(false); return; }
+    if (query.length < 2) { setSuggestions([]); setOpen(false); return; }
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        api_key: process.env.NEXT_PUBLIC_ORS_API_KEY!,
-        text: query,
-        size: '8',
-        layers: 'venue,address,street,neighbourhood,locality,localadmin,county,region',
-      });
-
-      const res = await fetch(`https://api.openrouteservice.org/geocode/autocomplete?${params}`);
+      const res = await fetch(`/api/geocode/autocomplete?q=${encodeURIComponent(query)}`);
       const data = await res.json();
 
-      const results: Suggestion[] = (data?.features || []).map((f: any) => ({
-        label: f.properties.label,
-        value: f.properties.label,
-        coords: f.geometry.coordinates as [number, number],
+      const results: Suggestion[] = (data?.results || []).map((r: any) => ({
+        label: r.label,
+        value: r.value,
+        coords: r.coords as [number, number],
       }));
 
       setSuggestions(results);
@@ -66,7 +59,7 @@ export default function AddressInput({ placeholder, value, onChange, glass = fal
     const val = e.target.value;
     onChange(val); // pass no coords — user is still typing
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 300);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 200);
   };
 
   const handleSelect = (s: Suggestion) => {
