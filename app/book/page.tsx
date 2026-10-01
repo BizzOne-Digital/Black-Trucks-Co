@@ -136,7 +136,7 @@ function BookForm() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-white pt-12 px-4 py-20 max-w-lg mx-auto text-center">
+      <div className="min-h-screen bg-white px-4 pb-20 pt-32 sm:pt-36 max-w-lg mx-auto text-center">
         <div className="inline-flex items-center justify-center w-14 h-14 bg-green-100 rounded-full mb-6">
           <CheckCircle className="h-8 w-8 text-green-600" />
         </div>
@@ -149,7 +149,7 @@ function BookForm() {
   }
 
   return (
-    <div className="min-h-screen bg-white pt-12 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-white pt-32 sm:pt-36 flex flex-col lg:flex-row">
       <div className="hidden lg:block relative lg:w-5/12 xl:w-1/2 lg:min-h-screen flex-shrink-0">
         <Image src="/Book now.jpeg" alt="Reserve your chauffeur" fill className="object-cover object-center" priority />
         <div className="absolute inset-0 bg-black/55" />
