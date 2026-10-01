@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/follow-up?secret=btc_cron_secret_change_in_production",
+      "schedule": "0 10 * * *"
+    }
+  ]
+}
