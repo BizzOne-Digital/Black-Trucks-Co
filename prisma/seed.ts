@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+/** Default fleet — matches production (no sedan / suburban / limo). Admin edits are preserved on re-seed. */
 const vehicles = [
   {
     name: 'Yukon XL',
@@ -13,18 +14,6 @@ const vehicles = [
     luggage: 5,
     description: 'The blacked-out GMC Yukon XL delivers maximum space without sacrificing style. Ideal for group transfers, corporate events, and airport runs.',
     features: ['Extended Wheelbase', 'All-Black Trim', 'Third Row Seating', 'Dual Climate Zones'],
-    available: true,
-  },
-  {
-    name: 'Suburban',
-    category: 'Black SUV',
-    image: '/Suburban.jpg',
-    pricePerHour: 100,
-    minimumHours: 1,
-    passengers: 8,
-    luggage: 7,
-    description: 'The iconic all-black Chevrolet Suburban — trusted by executives and security details worldwide. Massive interior, smooth ride, and an unmistakable black-on-black finish.',
-    features: ['Black-on-Black Finish', 'Massive Cargo Space', 'Rear Entertainment', 'USB Charging Ports', 'Advanced Safety Suite'],
     available: true,
   },
   {
@@ -40,30 +29,6 @@ const vehicles = [
     available: true,
   },
   {
-    name: 'Sprinter Van',
-    category: 'Luxury Van',
-    image: '/Sprinter Van.jpg',
-    pricePerHour: 150,
-    minimumHours: 2,
-    passengers: 12,
-    luggage: 10,
-    description: 'Our executive black Sprinter Van — the go-to for large group transfers, airport shuttles, and corporate events. Fully customized interior with premium seating.',
-    features: ['12-Passenger Capacity', 'Custom Interior', 'Individual Leather Seats', 'Custom Audio System', 'Onboard WiFi & USB'],
-    available: true,
-  },
-  {
-    name: 'GLS Maybach 600',
-    category: 'Ultra Luxury',
-    image: '/Maybach600.jpeg',
-    pricePerHour: 350,
-    minimumHours: 1,
-    passengers: 4,
-    luggage: 3,
-    description: 'The pinnacle of automotive luxury. The GLS Maybach 600 delivers an unmatched first-class experience for VIPs, executives, and special occasions.',
-    features: ['Executive Rear Seating', 'Massage Seats', 'Burmester Sound', 'Panoramic Roof', 'Champagne Cooler'],
-    available: true,
-  },
-  {
     name: 'Mercedes S Class',
     category: 'Executive Sedan',
     image: '/Mercedes S Class.jpg',
@@ -76,27 +41,27 @@ const vehicles = [
     available: true,
   },
   {
-    name: 'Lexus ES',
-    category: 'Luxury Sedan',
-    image: '/Lexus ES.jpg',
-    pricePerHour: 80,
-    minimumHours: 1,
-    passengers: 4,
-    luggage: 3,
-    description: 'The Lexus ES combines refined luxury with whisper-quiet comfort. Perfect for business travel and airport transfers with a premium touch.',
-    features: ['Mark Levinson Audio', 'Heated & Ventilated Seats', 'Panoramic Roof', 'Advanced Safety', 'Wireless Charging'],
+    name: 'Sprinter Van',
+    category: 'Luxury Van',
+    image: '/Sprinter Van.jpg',
+    pricePerHour: 220,
+    minimumHours: 2,
+    passengers: 12,
+    luggage: 10,
+    description: 'Our executive black Sprinter Van — the go-to for large group transfers, airport shuttles, and corporate events. Fully customized interior with premium seating.',
+    features: ['12-Passenger Capacity', 'Custom Interior', 'Individual Leather Seats', 'Custom Audio System', 'Onboard WiFi & USB'],
     available: true,
   },
   {
-    name: 'Stretch Limo',
+    name: 'GLS Maybach 600',
     category: 'Ultra Luxury',
-    image: '/Stretch Limo.jpg',
-    pricePerHour: 200,
-    minimumHours: 4,
-    passengers: 10,
-    luggage: 4,
-    description: 'Make a grand entrance with our elegant stretch limousine. Perfect for weddings, proms, and VIP events.',
-    features: ['LED Mood Lighting', 'Privacy Partition', 'Premium Entertainment', 'Fiber Optic Ceiling'],
+    image: '/Maybach600.jpeg',
+    pricePerHour: 300,
+    minimumHours: 1,
+    passengers: 4,
+    luggage: 3,
+    description: 'The pinnacle of automotive luxury. The GLS Maybach 600 delivers an unmatched first-class experience for VIPs, executives, and special occasions.',
+    features: ['Executive Rear Seating', 'Massage Seats', 'Burmester Sound', 'Panoramic Roof', 'Champagne Cooler'],
     available: true,
   },
 ];
@@ -120,40 +85,73 @@ const promoCodes = [
   { code: 'VIP30',     discountType: 'percentage', discountValue: 30, maxUses: 50,  minBookingAmount: 150, expiresAt: new Date('2027-12-31') },
 ];
 
+/** Vehicles the client removed from the public fleet — hidden, not deleted (keeps booking history). */
+const RETIRED_VEHICLE_NAMES = ['Lexus ES', 'Suburban', 'Stretch Limo'];
+
+async function upsertVehicle(data: typeof vehicles[0]) {
+  const existing = await prisma.vehicle.findFirst({ where: { name: data.name } });
+  if (existing) {
+    // Existing rows are owned by admin — seed must not overwrite prices or copy
+    return 'skipped';
+  }
+  await prisma.vehicle.create({ data });
+  return 'created';
+}
+
+async function retireRemovedVehicles() {
+  for (const name of RETIRED_VEHICLE_NAMES) {
+    await prisma.vehicle.updateMany({
+      where: { name },
+      data: { available: false },
+    });
+  }
+}
+
 async function seed() {
   console.log('Connecting via Prisma...');
 
-  // Clear
-  await prisma.review.deleteMany();
-   await prisma.abandonedBooking.deleteMany();
-  await prisma.booking.deleteMany();
-  await prisma.promoCode.deleteMany();
-  await prisma.vehicle.deleteMany();
-  await prisma.user.deleteMany();
-  console.log('🗑  Cleared existing data');
+  const forceReset = process.env.SEED_FORCE_RESET === 'true';
 
-  // Vehicles
+  if (forceReset) {
+    console.warn('⚠️  SEED_FORCE_RESET=true — wiping bookings and vehicles');
+    await prisma.review.deleteMany();
+    await prisma.abandonedBooking.deleteMany();
+    await prisma.booking.deleteMany();
+    await prisma.promoCode.deleteMany();
+    await prisma.vehicle.deleteMany();
+    await prisma.user.deleteMany();
+  }
+
+  let created = 0;
+  let skipped = 0;
   for (const v of vehicles) {
-    await prisma.vehicle.create({ data: v });
+    const result = await upsertVehicle(v);
+    if (result === 'created') created++;
+    else skipped++;
   }
-  console.log(`🚗 Seeded ${vehicles.length} vehicles`);
+  await retireRemovedVehicles();
+  console.log(`🚗 Vehicles: ${created} created, ${skipped} already in DB (unchanged)`);
 
-  // Users
   for (const u of users) {
-    await prisma.user.create({ data: u });
+    await prisma.user.upsert({
+      where: { email: u.email },
+      create: u,
+      update: { name: u.name, role: u.role, phone: u.phone },
+    });
   }
-  console.log(`👤 Seeded ${users.length} users`);
+  console.log(`👤 Ensured ${users.length} users`);
 
-  // Promo codes
   for (const p of promoCodes) {
-    await prisma.promoCode.create({ data: p });
+    await prisma.promoCode.upsert({
+      where: { code: p.code },
+      create: { ...p, active: true },
+      update: {},
+    });
   }
-  console.log(`🎟  Seeded ${promoCodes.length} promo codes`);
+  console.log(`🎟  Ensured ${promoCodes.length} promo codes`);
 
-  console.log('\n✅ Seed complete!');
+  console.log('\n✅ Seed complete (safe mode — set SEED_FORCE_RESET=true only to wipe data)');
   console.log('   Admin:  admin@blacktrucks.co  /  admin123456');
-  console.log('   Driver: driver@blacktrucks.co /  admin123456');
-  console.log('   Promos: WELCOME20, FLAT15, VIP30');
 }
 
 seed()

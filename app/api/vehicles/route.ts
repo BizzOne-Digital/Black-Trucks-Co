@@ -43,7 +43,6 @@ export async function GET(req: NextRequest) {
       const annotated = vehicles.map(v => {
         const slots = bookedMap[v.id] || [];
 
-        // If no time requested, mark unavailable if ANY booking exists that day
         let isAvailableOnDate = true;
         let conflictingSlots: string[] = [];
 
@@ -60,8 +59,9 @@ export async function GET(req: NextRequest) {
             }
           }
         } else {
-          // No time given — just flag if any booking exists
-          isAvailableOnDate = slots.length === 0;
+          // Date-only queries (e.g. admin calendar): do not block the whole day —
+          // a vehicle with one booking can still be selected for non-overlapping times.
+          isAvailableOnDate = true;
           conflictingSlots = slots.map(s =>
             `${String(Math.floor(s.startMin / 60)).padStart(2, '0')}:${String(s.startMin % 60).padStart(2, '0')}`
           );

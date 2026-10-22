@@ -130,9 +130,31 @@ export default function AdminVehiclesPage() {
             {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black" /></div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <>
+          <div className="md:hidden space-y-3">
+            {vehicles.map(v => (
+              <div key={v.id} className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
+                <div className="flex gap-3">
+                  <img src={v.image} alt={v.name} className="h-14 w-20 object-cover rounded flex-shrink-0" onError={e => { (e.target as HTMLImageElement).src = '/logo.png'; }} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold truncate">{v.name}</p>
+                    <p className="text-xs text-gray-500">{v.category}</p>
+                    <p className="text-sm font-medium mt-1">${v.pricePerHour.toFixed(2)}/hr · {v.passengers} pax</p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${v.available ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {v.available ? 'Yes' : 'No'}
+                  </span>
+                </div>
+                <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-50">
+                  <button onClick={() => openEdit(v)} className="p-2 rounded-lg border border-gray-200 text-gray-600"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => setDeleteId(v.id)} className="p-2 rounded-lg border border-red-100 text-red-500"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm min-w-[720px]">
                 <thead className="bg-gray-50">
                   <tr>
                     {['Image', 'Name', 'Category', 'Price/hr', 'Passengers', 'Luggage', 'Available', 'Actions'].map(h => (
@@ -168,6 +190,7 @@ export default function AdminVehiclesPage() {
               </table>
             </div>
           </div>
+          </>
         )}
           </>
         )}
@@ -183,7 +206,8 @@ export default function AdminVehiclesPage() {
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-black"
               />
               <span className="text-xs text-gray-400">
-                {availData.filter(v => v.isAvailableOnDate && v.available).length} available · {availData.filter(v => !v.isAvailableOnDate || !v.available).length} unavailable
+                {availData.filter(v => v.available).length} active in fleet ·{' '}
+                {availData.reduce((n, v) => n + (v.bookingsOnDate?.length ?? 0), 0)} booking(s) on this date
               </span>
             </div>
 
@@ -213,10 +237,12 @@ export default function AdminVehiclesPage() {
                           <td className="px-4 py-3">
                             {!v.available ? (
                               <span className="flex items-center gap-1 text-xs text-gray-400"><XCircle className="h-4 w-4" /> Disabled</span>
-                            ) : v.isAvailableOnDate ? (
-                              <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" /> Available</span>
+                            ) : v.bookingsOnDate.length === 0 ? (
+                              <span className="flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle2 className="h-4 w-4" /> No bookings</span>
                             ) : (
-                              <span className="flex items-center gap-1 text-xs text-red-500 font-medium"><XCircle className="h-4 w-4" /> Booked</span>
+                              <span className="flex items-center gap-1 text-xs text-amber-700 font-medium">
+                                <CheckCircle2 className="h-4 w-4" /> {v.bookingsOnDate.length} booking{v.bookingsOnDate.length === 1 ? '' : 's'}
+                              </span>
                             )}
                           </td>
                           <td className="px-4 py-3">

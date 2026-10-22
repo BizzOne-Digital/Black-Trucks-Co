@@ -14,14 +14,13 @@ export default function ConfirmationPage() {
 
   useEffect(() => {
     const saved = sessionStorage.getItem('confirmedBooking');
-    if (saved) {
-      setBooking(JSON.parse(saved));
-      // Always clean up all booking state on confirmation
-      sessionStorage.removeItem('bookingData');
-      sessionStorage.removeItem('confirmedBooking');
-    } else {
-      router.push('/');
+    if (!saved) {
+      router.replace('/');
+      return;
     }
+    setBooking(JSON.parse(saved));
+    sessionStorage.removeItem('bookingData');
+    // Keep confirmedBooking until user leaves — avoids React Strict Mode wiping state on remount
   }, [router]);
 
   if (!booking?.vehicle) return null;
@@ -163,10 +162,28 @@ export default function ConfirmationPage() {
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <Link href="/" className="flex-1 text-center border border-gray-300 hover:border-gray-600 text-black py-3 rounded-lg text-sm font-medium transition-colors">
+          <Link
+            href="/"
+            onClick={() => sessionStorage.removeItem('confirmedBooking')}
+            className="flex-1 text-center border border-gray-300 hover:border-gray-600 text-black py-3 rounded-lg text-sm font-medium transition-colors"
+          >
             Back to Home
           </Link>
-          <Link href="/book" className="flex-1 text-center bg-black hover:bg-gray-800 text-white py-3 rounded-lg text-sm font-medium transition-colors">
+          {ref && booking.paymentMethod === 'card' && (
+            <Link
+              href={`/checkout?ref=${encodeURIComponent(ref)}&email=${encodeURIComponent(
+                (booking as { guestEmail?: string }).guestEmail || ''
+              )}`}
+              className="flex-1 text-center bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg text-sm font-medium transition-colors"
+            >
+              Pay deposit
+            </Link>
+          )}
+          <Link
+            href="/book"
+            onClick={() => sessionStorage.removeItem('confirmedBooking')}
+            className="flex-1 text-center bg-black hover:bg-gray-800 text-white py-3 rounded-lg text-sm font-medium transition-colors"
+          >
             Book Another Ride
           </Link>
         </div>

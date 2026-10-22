@@ -75,6 +75,10 @@ function Hero() {
   };
 
   const handleBook = () => {
+    if (!date) {
+      setError('Please select a pickup date before choosing a vehicle.');
+      return;
+    }
     const bookingData = {
       pickup, dropoff: mode === 'oneway' ? dropoff : pickup, date, time,
       distance: result?.distance ?? 0,

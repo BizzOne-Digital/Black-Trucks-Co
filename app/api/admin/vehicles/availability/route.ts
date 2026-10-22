@@ -58,7 +58,9 @@ export async function GET(req: NextRequest) {
         name: v.name,
         category: v.category,
         available: v.available,
+        /** True when no bookings on this date (informational — not whole-day blocking). */
         isAvailableOnDate: slots.length === 0,
+        bookingCount: slots.length,
         bookingsOnDate,
       };
     });
