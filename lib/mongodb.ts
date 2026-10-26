@@ -13,13 +13,12 @@ function getClientPromise(): Promise<MongoClient> {
     throw new Error('MONGODB_URI is not defined in environment variables');
   }
   const mongoUri = process.env.MONGODB_URI;
-  if (process.env.NODE_ENV === 'development') {
-    if (!globalWithMongo._mongoClient) {
-      globalWithMongo._mongoClient = new MongoClient(mongoUri);
-    }
-    return globalWithMongo._mongoClient.connect();
+  // Reuse one client in every environment. A new client per call leaks
+  // connections in production until the database refuses new ones.
+  if (!globalWithMongo._mongoClient) {
+    globalWithMongo._mongoClient = new MongoClient(mongoUri);
   }
-  return new MongoClient(mongoUri).connect();
+  return globalWithMongo._mongoClient.connect();
 }
 
 export async function getDb(): Promise<Db> {

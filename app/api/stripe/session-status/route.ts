@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import stripe from '@/lib/stripe';
 import { getDb, parseId, oid } from '@/lib/mongodb';
+import { finalizeCheckoutSession } from '@/lib/finalizeCheckout';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,16 @@ export async function GET(req: NextRequest) {
       checkoutSession = await stripe.checkout.sessions.retrieve(sessionId);
     } catch {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    // Fallback for a missing/delayed webhook: confirm + email here if Stripe says paid.
+    // Idempotent, so it is safe alongside the webhook.
+    if (checkoutSession.payment_status === 'paid') {
+      try {
+        await finalizeCheckoutSession(checkoutSession);
+      } catch (e) {
+        console.error('[stripe/session-status] finalize failed', e);
+      }
     }
 
     const bookingId = checkoutSession.metadata?.bookingId;

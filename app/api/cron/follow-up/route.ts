@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { sendAbandonmentEmail, sendReviewRequestEmail } from '@/lib/email';
+import { sendAbandonmentEmail, sendReviewRequestEmail, retryFailedEmails, verifySmtpConnection } from '@/lib/email';
 
 // Protect with a secret token so only cron jobs / admin can call this
 function isAuthorized(req: NextRequest) {
-  const token = req.headers.get('x-cron-secret') || new URL(req.url).searchParams.get('secret');
-  return token === process.env.CRON_SECRET;
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  // Vercel cron sends "Authorization: Bearer <CRON_SECRET>"
+  const bearer = req.headers.get('authorization')?.replace(/^Bearers+/i, '');
+  const token = bearer || req.headers.get('x-cron-secret') || new URL(req.url).searchParams.get('secret');
+  return token === secret;
 }
 
 export async function POST(req: NextRequest) {
@@ -14,7 +18,28 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = process.env.NEXTAUTH_URL || 'https://yoursite.com';
-  const results = { abandonmentsSent: 0, reviewsSent: 0, errors: [] as string[] };
+  const results = {
+    abandonmentsSent: 0,
+    reviewsSent: 0,
+    smtp: 'unknown' as string,
+    emailRetry: null as null | { checked: number; sent: number; failed: number },
+    errors: [] as string[],
+  };
+
+  // ── 0. Email health: verify SMTP and re-send anything that previously failed ──
+  try {
+    await verifySmtpConnection();
+    results.smtp = 'ok';
+  } catch (e: any) {
+    results.smtp = 'FAILED';
+    results.errors.push(`SMTP verify failed: ${e.message}`);
+    console.error('[cron] SMTP verify failed — check SMTP_PASS / Gmail App Password:', e.message);
+  }
+  try {
+    results.emailRetry = await retryFailedEmails(30);
+  } catch (e: any) {
+    results.errors.push(`email retry: ${e.message}`);
+  }
 
   // ── 1. Abandonment emails ──────────────────────────────────────────────────
   // Send to users who abandoned > 1 hour ago and haven't been emailed yet

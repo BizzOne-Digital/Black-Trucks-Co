@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
       : null;
     const deposit = depositFromTotal(booking.totalPrice);
 
-    await safeSend(
+    const emailed = await safeSend(
       () =>
         sendBookingInquiryEmails({
           to: email.trim(),
@@ -137,6 +137,13 @@ export async function POST(req: NextRequest) {
         }),
       'booking inquiry'
     );
+
+    // Visible flag so a booking whose emails failed can be found and followed up
+    // (failed emails are also queued for automatic retry in EmailLog).
+    await db.collection('Booking').updateOne(
+      { reference: booking.reference },
+      { $set: { emailStatus: emailed ? 'sent' : 'failed' } }
+    ).catch(() => {});
 
     return NextResponse.json({
       reference: booking.reference,
