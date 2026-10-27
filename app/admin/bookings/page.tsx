@@ -43,7 +43,7 @@ export default function AdminBookingsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     });
-    setBookings(bs => bs.map(b => b._id === id ? { ...b, status: newStatus } : b));
+    setBookings(bs => bs.map(b => b.id === id ? { ...b, status: newStatus } : b));
   };
 
   return (
@@ -80,11 +80,19 @@ export default function AdminBookingsPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {bookings.map((b: any) => (
-                    <tr key={b._id} className="hover:bg-gray-50">
+                    <tr key={b.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-xs">{b.reference}</td>
                       <td className="px-4 py-3">
                         <div>{b.guestName || b.user?.name || '—'}</div>
                         <div className="text-xs text-gray-400">{b.guestEmail || b.user?.email}</div>
+                        {(b.guestPhone || b.user?.phone) ? (
+                          <a href={`tel:${String(b.guestPhone || b.user?.phone).replace(/[^+d]/g, '')}`} className="text-xs font-medium text-blue-600 hover:underline">
+                            {b.guestPhone || b.user?.phone}
+                          </a>
+                        ) : <div className="text-xs text-gray-300">No phone</div>}
+                        {b.emailStatus === 'failed' && (
+                          <div className="mt-1 inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">Email not sent</div>
+                        )}
                       </td>
                       <td className="px-4 py-3">{b.vehicle?.name || '—'}</td>
                       <td className="px-4 py-3 text-xs">
@@ -106,7 +114,7 @@ export default function AdminBookingsPage() {
                       <td className="px-4 py-3">
                         <select
                           value={b.status}
-                          onChange={e => updateStatus(b._id, e.target.value)}
+                          onChange={e => updateStatus(b.id, e.target.value)}
                           className="border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none"
                         >
                           {['pending', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled'].map(s => (

@@ -50,6 +50,7 @@ model Booking {
   guestEmail           String?
   guestName            String?
   guestPhone           String?
+  emailStatus          String?
   vehicleId            String    @db.ObjectId
   vehicle              Vehicle   @relation(fields: [vehicleId], references: [id])
   driverId             String?   @db.ObjectId

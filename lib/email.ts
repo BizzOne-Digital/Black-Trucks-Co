@@ -351,7 +351,7 @@ export async function sendAdminBookingAlert(rawData: BookingEmailData) {
     replyTo: EMAIL_RE.test(rawData.to) ? rawData.to : undefined,
     kind: 'admin-booking-alert',
     bookingRef: rawData.reference,
-    subject: `New Booking – ${rawData.reference} – ${rawData.totalPrice.toFixed(2)}`,
+    subject: `New Booking – ${rawData.reference} – $${rawData.totalPrice.toFixed(2)}`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
         <div style="background:#000;padding:24px;text-align:center;">
