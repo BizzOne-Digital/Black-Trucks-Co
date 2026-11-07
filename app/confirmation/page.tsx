@@ -154,8 +154,8 @@ export default function ConfirmationPage() {
             <a href="tel:6477066325" className="flex items-center gap-3 text-sm text-gray-600 hover:text-black transition-colors">
               <Phone className="h-4 w-4 text-blue-600" /> 647-706-6325
             </a>
-            <a href="mailto:Blacktrucksco@hotmail.com" className="flex items-center gap-3 text-sm text-gray-600 hover:text-black transition-colors">
-              <Mail className="h-4 w-4 text-blue-600" /> Blacktrucksco@hotmail.com
+            <a href="mailto:blacktrucksco@gmail.com" className="flex items-center gap-3 text-sm text-gray-600 hover:text-black transition-colors">
+              <Mail className="h-4 w-4 text-blue-600" /> blacktrucksco@gmail.com
             </a>
           </div>
         </div>

@@ -424,8 +424,8 @@ export default function AboutPage() {
               <p className="text-gray-400 text-sm mb-4">
                 Send us your inquiries and booking details anytime.
               </p>
-              <a href="mailto:Blacktrucksco@hotmail.com" className="text-white font-semibold hover:text-gray-300 transition-colors">
-                Blacktrucksco@hotmail.com
+              <a href="mailto:blacktrucksco@gmail.com" className="text-white font-semibold hover:text-gray-300 transition-colors">
+                blacktrucksco@gmail.com
               </a>
               <p className="text-gray-500 text-xs mt-1">We respond within 24 hours</p>
             </div>
