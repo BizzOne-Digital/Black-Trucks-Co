@@ -37,6 +37,15 @@ export default function AdminBookingsPage() {
       .then(d => { setBookings(d.bookings || []); setTotal(d.total || 0); setLoading(false); });
   }, [page, filterStatus, status]);
 
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copyPhone = async (id: string, phone: string) => {
+    try {
+      await navigator.clipboard.writeText(phone.replace(/[^+\d]/g, ''));
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch { /* clipboard blocked; number is still selectable */ }
+  };
+
   const updateStatus = async (id: string, newStatus: string) => {
     await fetch(`/api/bookings/${id}`, {
       method: 'PATCH',
@@ -86,12 +95,23 @@ export default function AdminBookingsPage() {
                         <div>{b.guestName || b.user?.name || '—'}</div>
                         <div className="text-xs text-gray-400">{b.guestEmail || b.user?.email}</div>
                         {(b.guestPhone || b.user?.phone) ? (
-                          <a href={`tel:${String(b.guestPhone || b.user?.phone).replace(/[^+d]/g, '')}`} className="text-xs font-medium text-blue-600 hover:underline">
-                            {b.guestPhone || b.user?.phone}
-                          </a>
+                          <div className="flex items-center gap-2">
+                            <a href={`tel:${String(b.guestPhone || b.user?.phone).replace(/[^+\d]/g, '')}`} className="text-xs font-medium text-blue-600 hover:underline select-text">
+                              {b.guestPhone || b.user?.phone}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => copyPhone(b.id, String(b.guestPhone || b.user?.phone))}
+                              className="text-[10px] px-1.5 py-0.5 border border-gray-200 rounded hover:bg-gray-100 text-gray-600"
+                            >
+                              {copiedId === b.id ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
                         ) : <div className="text-xs text-gray-300">No phone</div>}
-                        {b.emailStatus === 'failed' && (
-                          <div className="mt-1 inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">Email not sent</div>
+                        {(b.emailStatus === 'failed' || b.emailStatus === 'pending') && (
+                          <div className="mt-1 inline-block px-2 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">
+                            {b.emailStatus === 'failed' ? 'Email not sent' : 'Email pending / unconfirmed'}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3">{b.vehicle?.name || '—'}</td>

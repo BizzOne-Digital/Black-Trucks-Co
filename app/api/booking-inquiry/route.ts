@@ -7,6 +7,8 @@ import { getDb, parseId } from '@/lib/mongodb';
 import { depositFromTotal } from '@/lib/deposit';
 
 export const dynamic = 'force-dynamic';
+// SMTP retries can exceed the default serverless limit and kill the request mid-send.
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -117,6 +119,12 @@ export async function POST(req: NextRequest) {
       ? await db.collection('Vehicle').findOne({ _id: vehicleOid }, { projection: { name: 1 } })
       : null;
     const deposit = depositFromTotal(booking.totalPrice);
+
+    // Mark as not-yet-sent first so a killed request still shows up as unsent in admin.
+    await db.collection('Booking').updateOne(
+      { reference: booking.reference },
+      { $set: { emailStatus: 'pending' } }
+    ).catch(() => {});
 
     const emailed = await safeSend(
       () =>

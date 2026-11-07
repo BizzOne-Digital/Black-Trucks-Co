@@ -197,10 +197,14 @@ async function sendMail(options: MailOptions) {
 /** Re-send emails that previously failed. Safe to call repeatedly. */
 export async function retryFailedEmails(limit = 20) {
   const db = await getDb();
+  // 'pending'/'retrying' rows older than 3 minutes are orphans: the serverless
+  // function was killed mid-send (timeout), so they must be re-sent too.
   const rows = await db.collection(EMAIL_LOG).find({
-    status: 'failed',
     attempts: { $lt: MAX_TOTAL_ATTEMPTS },
-    updatedAt: { $lt: new Date(Date.now() - 60_000) },
+    $or: [
+      { status: 'failed', updatedAt: { $lt: new Date(Date.now() - 60_000) } },
+      { status: { $in: ['pending', 'retrying'] }, updatedAt: { $lt: new Date(Date.now() - 3 * 60_000) } },
+    ],
   }).sort({ createdAt: 1 }).limit(limit).toArray();
 
   let sent = 0;
@@ -208,7 +212,7 @@ export async function retryFailedEmails(limit = 20) {
   for (const row of rows) {
     // Claim the row so two concurrent flushes don't send it twice.
     const claim = await db.collection(EMAIL_LOG).updateOne(
-      { _id: row._id, status: 'failed' },
+      { _id: row._id, status: row.status, updatedAt: row.updatedAt },
       { $set: { status: 'retrying', updatedAt: new Date() } }
     );
     if (!claim.modifiedCount) continue;

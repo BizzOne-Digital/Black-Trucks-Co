@@ -7,7 +7,7 @@ function isAuthorized(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
   // Vercel cron sends "Authorization: Bearer <CRON_SECRET>"
-  const bearer = req.headers.get('authorization')?.replace(/^Bearers+/i, '');
+  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
   const token = bearer || req.headers.get('x-cron-secret') || new URL(req.url).searchParams.get('secret');
   return token === secret;
 }

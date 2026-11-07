@@ -22,11 +22,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const body = await req.json();
+    const rawBody = await req.json();
     const isAdmin = (session.user as any).role === 'admin';
 
-    if (!isAdmin && body.status && body.status !== 'cancelled') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Whitelist fields: never pass the raw body to the database (mass assignment
+    // would let any user change paymentStatus, totalPrice, userId, etc.).
+    const body: Record<string, unknown> = {};
+    if (isAdmin) {
+      for (const key of ['status', 'driverId', 'notes'] as const) {
+        if (rawBody[key] !== undefined) body[key] = rawBody[key];
+      }
+    } else {
+      if (rawBody.status !== 'cancelled') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const owned = await prisma.booking.findUnique({ where: { id: params.id }, select: { userId: true } });
+      if (!owned || owned.userId !== (session.user as any).id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+      body.status = 'cancelled';
+    }
+    if (Object.keys(body).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
     // Fetch current booking before update to detect status change
@@ -64,7 +81,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           to: email,
           name,
           reference: before.reference,
-          status: body.status,
+          status: String(body.status),
           vehicle: before.vehicle.name,
           pickup: before.pickup,
           date: before.date,

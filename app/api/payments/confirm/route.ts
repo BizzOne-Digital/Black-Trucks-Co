@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Payment not succeeded (status: ${intent.status})` }, { status: 400 });
     }
 
-    if (intent.metadata?.bookingId && intent.metadata.bookingId !== bookingId) {
+    // The intent must be explicitly bound to this booking; otherwise any paid intent could confirm any booking.
+    if (intent.metadata?.bookingId !== bookingId) {
       return NextResponse.json({ error: 'Payment does not match this booking' }, { status: 400 });
     }
 
